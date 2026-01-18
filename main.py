@@ -13,18 +13,17 @@ FONT = pygame.font.SysFont("arial", 20)
 BIG_FONT = pygame.font.SysFont("arial", 32)
 
 BASE_SPEED = 5
+DEATH_DISPLAY_TIME = 60
+INVULN_TIME = 30
 
 death_message = ""
 death_timer = 0
-DEATH_DISPLAY_TIME = 60
-
 invuln_timer = 0
-INVULN_TIME = 30
 
 game_complete = False
 
 player_img = pygame.image.load("assets/player.png").convert_alpha()
-player_img = pygame.transform.scale(player_img, (50, 50))
+player_img = pygame.transform.scale(player_img, (80, 80))
 
 backgrounds = [
     pygame.transform.scale(pygame.image.load("assets/cave.png").convert(), (WIDTH, HEIGHT)),
@@ -35,22 +34,24 @@ backgrounds = [
 fruit_imgs = {
     "apple": pygame.transform.scale(pygame.image.load("assets/apple.png").convert_alpha(), (30, 30)),
     "banana": pygame.transform.scale(pygame.image.load("assets/banana.png").convert_alpha(), (30, 30)),
-    "avocado": pygame.transform.scale(pygame.image.load("assets/avocado.png").convert_alpha(), (30, 30))
+    "avocado": pygame.transform.scale(pygame.image.load("assets/avocado.png").convert_alpha(), (30, 30)),
+    "blueberry": pygame.transform.scale(pygame.image.load("assets/blueberry.png").convert_alpha(), (30, 30)),
+    "watermelon": pygame.transform.scale(pygame.image.load("assets/watermelon.png").convert_alpha(), (30, 30))
 }
 
 spike_img = pygame.transform.scale(
-    pygame.image.load("assets/spike.png").convert_alpha(), (40, 40)
+    pygame.image.load("assets/spike.png").convert_alpha(), (30 , 30)
 )
 top_spike_img = pygame.transform.flip(spike_img, False, True)
 
 square_img = pygame.transform.scale(
-    pygame.image.load("assets/square.png").convert_alpha(), (60, 60)
+    pygame.image.load("assets/square.png").convert_alpha(), (40, 40 )
 )
 
 bg_x1 = 0
 bg_x2 = WIDTH
 
-player = pygame.Rect(120, 250, 50, 50)
+player = pygame.Rect(120, 250, 80, 80)
 vel_y = 0
 
 current_level = 0
@@ -60,12 +61,14 @@ level_xp_thresholds = [10, 25, 50]
 question_active = False
 current_q = None
 
-fruit_type = random.choice(list(fruit_imgs.keys()))
+
+fruit_type = random.choice(list(fruit_imgs.keys())[:3])
 fruit = pygame.Rect(WIDTH + 300, random.randint(80, HEIGHT - 110), 30, 30)
 
 top_spikes = []
 bottom_spikes = []
 middle_blocks = []
+
 
 questions = {
     "apple": {
@@ -118,6 +121,25 @@ questions = {
             {"q":"Avocados provide?", "options":["Unsaturated fats","Sugar","Protein","Starch"], "answer":0},
             {"q":"Avocados improve?", "options":["Heart health","Hearing","Memory","Reflexes"], "answer":0}
         ]
+    },
+    "blueberry": {
+        1: [
+            {"q":"Blueberries are rich in?", "options":["Antioxidants","Sugar","Fat","Protein"], "answer":0},
+            {"q":"Blueberries support?", "options":["Brain","Heart","Bones","Vision"], "answer":0},
+            {"q":"Blueberries help with?", "options":["Memory","Sleep","Hair growth","Digestion"], "answer":0}
+        ],
+        2: [
+            {"q":"Blueberries improve?", "options":["Blood pressure","Vision","Weight loss","Sleep"], "answer":0},
+            {"q":"Blueberries provide?", "options":["Vitamins","Cholesterol","Starch","Trans fats"], "answer":0},
+            {"q":"Blueberries are best for?", "options":["Brain","Muscles","Bones","Skin"], "answer":0}
+        ]
+    },
+    "watermelon": {
+        2: [
+            {"q":"Watermelon is high in?", "options":["Water","Sugar","Protein","Fat"], "answer":0},
+            {"q":"Watermelon supports?", "options":["Hydration","Vision","Sleep","Bones"], "answer":0},
+            {"q":"Watermelon contains?", "options":["Vitamin C","Iron","Calcium","Zinc"], "answer":0}
+        ]
     }
 }
 
@@ -136,37 +158,38 @@ def create_edge_spikes():
     top_spikes.clear()
     bottom_spikes.clear()
     for x in range(0, WIDTH, 40):
-        top_spikes.append(pygame.Rect(x, 0, 40, 40))
-        bottom_spikes.append(pygame.Rect(x, HEIGHT - 40, 40, 40))
+        top_spikes.append(pygame.Rect(x, 0, 30, 30))
+        bottom_spikes.append(pygame.Rect(x, HEIGHT - 30, 30, 30))
 
 def spawn_middle_blocks():
     for _ in range(1 + current_level):
         middle_blocks.append(
             pygame.Rect(WIDTH + random.randint(400, 900),
-                        random.randint(120, HEIGHT - 180), 60, 60)
+                        random.randint(120, HEIGHT - 180),
+                        40 , 40)
         )
 
 def spawn_fruit():
     global fruit_type
-    fruit_type = random.choice(list(fruit_imgs.keys()))
+    
+    available = ["apple", "banana", "avocado"]
+    if current_level >= 1:
+        available.append("blueberry")
+    if current_level >= 2:
+        available.append("watermelon")
+    fruit_type = random.choice(available)
     fruit.x = WIDTH + random.randint(400, 700)
     fruit.y = random.randint(80, HEIGHT - 110)
 
-def reset_entire_game():
-    global xp, current_level, vel_y, question_active, death_message, death_timer, invuln_timer
-
-    xp = 0
-    current_level = 0
+def reset_level(message="Boohoo, you hit a spike!"):
+    global vel_y, question_active, death_message, death_timer, invuln_timer
     vel_y = 0
     question_active = False
-
     middle_blocks.clear()
     create_edge_spikes()
     spawn_fruit()
-
     player.y = 250
-
-    death_message = "Boohoo, don't hit the spikes!"
+    death_message = message
     death_timer = DEATH_DISPLAY_TIME
     invuln_timer = INVULN_TIME
 
@@ -195,17 +218,16 @@ while running:
                 if pygame.Rect(250, 230 + i * 40, 500, 30).collidepoint(mx, my):
                     if i == current_q["answer"]:
                         question_active = False
-                        xp += 5
-
+                       
+                        xp += 5 if fruit_type not in ["blueberry","watermelon"] else 10
                         if xp >= 50:
                             game_complete = True
                         elif current_level < 2 and xp >= level_xp_thresholds[current_level]:
                             current_level += 1
                             create_edge_spikes()
-
                         spawn_fruit()
                     else:
-                        reset_entire_game()
+                        reset_level("Boohoo, you got the question wrong! Try again.")
 
     if not PAUSED:
         vel_y += 1
@@ -227,18 +249,17 @@ while running:
 
         if invuln_timer == 0:
             if player.top <= 40 or player.bottom >= HEIGHT - 40:
-                reset_entire_game()
+                reset_level("Boohoo, you hit a spike!")
 
             for block in middle_blocks:
                 if player.colliderect(block):
-                    reset_entire_game()
+                    reset_level("Ouch! You crashed into a block!")
                     break
 
         if invuln_timer > 0:
             invuln_timer -= 1
 
         middle_blocks[:] = [b for b in middle_blocks if b.x > -70]
-
         if fruit.x < -150 and not question_active:
             spawn_fruit()
 
@@ -267,7 +288,7 @@ while running:
         overlay.fill((0,0,0))
         screen.blit(overlay, (0,0))
         screen.blit(BIG_FONT.render(death_message, True, (255,80,80)),
-                    (WIDTH//2 - 250, HEIGHT//2 - 20))
+                    (WIDTH//2 - 260, HEIGHT//2 - 20))
         death_timer -= 1
 
     if game_complete:
@@ -277,10 +298,10 @@ while running:
         screen.blit(overlay, (0,0))
         screen.blit(
             BIG_FONT.render(
-                "Good job, make sure you eat your fruits and vegetables daily!",
+                "YOU WON!!!, make sure you eat your fruits daily!",
                 True, (80,255,80)
             ),
-            (WIDTH//2 - 430, HEIGHT//2 - 20)
+            (WIDTH//2 - 450, HEIGHT//2 - 20)
         )
 
     screen.blit(FONT.render(f"XP: {xp}", True, (255,255,0)), (20,20))
