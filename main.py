@@ -14,6 +14,10 @@ BIG_FONT = pygame.font.SysFont("arial", 36)
 
 BASE_SPEED = 5
 
+death_message = ""
+death_timer = 0
+DEATH_DISPLAY_TIME = 60
+
 player_img = pygame.image.load("assets/player.png").convert_alpha()
 player_img = pygame.transform.scale(player_img, (50, 50))
 
@@ -55,7 +59,6 @@ checkpoints = {
 }
 
 question_active = False
-game_over = False
 current_q = None
 
 fruit_type = random.choice(list(fruit_imgs.keys()))
@@ -140,9 +143,10 @@ def create_edge_spikes():
 def spawn_middle_blocks():
     count = 1 + current_level
     for _ in range(count):
-        x = WIDTH + random.randint(400, 900)
-        y = random.randint(120, HEIGHT - 180)
-        middle_blocks.append(pygame.Rect(x, y, 60, 60))
+        middle_blocks.append(
+            pygame.Rect(WIDTH + random.randint(400, 900),
+                        random.randint(120, HEIGHT - 180), 60, 60)
+        )
 
 def spawn_fruit():
     global fruit_type
@@ -150,17 +154,22 @@ def spawn_fruit():
     fruit.x = WIDTH + random.randint(400, 700)
     fruit.y = random.randint(80, HEIGHT - 110)
 
-def reset_to_checkpoint():
-    global xp, vel_y, question_active, game_over
+def reset_to_checkpoint(message="You died! Restarting level..."):
+    global xp, vel_y, question_active, death_message, death_timer
+
     checkpoint = checkpoints[current_level]
     xp = checkpoint["xp"]
     vel_y = 0
     question_active = False
-    game_over = False
+
     middle_blocks.clear()
     create_edge_spikes()
     spawn_fruit()
+
     player.y = checkpoint["y"]
+
+    death_message = message
+    death_timer = DEATH_DISPLAY_TIME
 
 create_edge_spikes()
 spawn_fruit()
@@ -170,32 +179,30 @@ running = True
 
 while running:
     clock.tick(60)
-    PAUSED = question_active or game_over
+    PAUSED = question_active or death_timer > 0
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            pygame.quit()
+            sys.exit()
 
-        if event.type == pygame.KEYDOWN:
-            if not PAUSED and event.key == pygame.K_SPACE:
+        if event.type == pygame.KEYDOWN and not PAUSED:
+            if event.key == pygame.K_SPACE:
                 vel_y = -15
-            if game_over and event.key == pygame.K_r:
-                reset_to_checkpoint()
 
         if event.type == pygame.MOUSEBUTTONDOWN and question_active:
             mx, my = pygame.mouse.get_pos()
             for i in range(4):
-                box = pygame.Rect(250, 230 + i * 40, 500, 30)
-                if box.collidepoint(mx, my):
+                if pygame.Rect(250, 230 + i * 40, 500, 30).collidepoint(mx, my):
                     if i == current_q["answer"]:
                         question_active = False
                         xp += 5
                         if current_level < 2 and xp >= level_xp_thresholds[current_level]:
                             current_level += 1
                             create_edge_spikes()
-                            spawn_fruit()
+                        spawn_fruit()
                     else:
-                        reset_to_checkpoint()
+                        reset_to_checkpoint("Wrong answer!")
 
     if not PAUSED:
         vel_y += 1
@@ -211,18 +218,19 @@ while running:
             spawn_middle_blocks()
             block_timer = 0
 
-        if player.colliderect(fruit):
+        if player.colliderect(fruit) and not question_active:
             question_active = True
             current_q = random.choice(questions[fruit_type][current_level])
+            fruit.x = -100
 
         for obstacle in top_spikes + bottom_spikes + middle_blocks:
             if player.colliderect(obstacle):
-                reset_to_checkpoint()
+                reset_to_checkpoint("You hit an obstacle!")
                 break
 
         middle_blocks[:] = [b for b in middle_blocks if b.x > -70]
 
-        if fruit.x < -50:
+        if fruit.x < -150 and not question_active:
             spawn_fruit()
 
     draw_background(0 if PAUSED else BASE_SPEED + current_level * 2)
@@ -230,12 +238,12 @@ while running:
     screen.blit(player_img, player)
     screen.blit(fruit_imgs[fruit_type], fruit)
 
-    for spike in top_spikes:
-        screen.blit(top_spike_img, spike)
-    for spike in bottom_spikes:
-        screen.blit(spike_img, spike)
-    for block in middle_blocks:
-        screen.blit(square_img, block)
+    for s in top_spikes:
+        screen.blit(top_spike_img, s)
+    for s in bottom_spikes:
+        screen.blit(spike_img, s)
+    for b in middle_blocks:
+        screen.blit(square_img, b)
 
     if question_active:
         pygame.draw.rect(screen, (10,10,10), (200,180,600,260))
@@ -244,10 +252,18 @@ while running:
             pygame.draw.rect(screen, (60,60,60), (250,230+i*40,500,30))
             screen.blit(FONT.render(opt, True, (255,255,255)), (260,235+i*40))
 
+    if death_timer > 0:
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+        screen.blit(
+            BIG_FONT.render(death_message, True, (255, 80, 80)),
+            (WIDTH // 2 - 260, HEIGHT // 2 - 20)
+        )
+        death_timer -= 1
+
     screen.blit(FONT.render(f"XP: {xp}", True, (255,255,0)), (20,20))
     screen.blit(FONT.render(f"Level: {current_level+1}", True, (255,255,0)), (20,50))
 
     pygame.display.update()
-
-pygame.quit()
-sys.exit()
