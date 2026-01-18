@@ -10,9 +10,18 @@ pygame.display.set_caption("Healthy Runner XP")
 
 clock = pygame.time.Clock()
 FONT = pygame.font.SysFont("arial", 20)
-BIG_FONT = pygame.font.SysFont("arial", 36)
+BIG_FONT = pygame.font.SysFont("arial", 32)
 
 BASE_SPEED = 5
+
+death_message = ""
+death_timer = 0
+DEATH_DISPLAY_TIME = 60
+
+invuln_timer = 0
+INVULN_TIME = 30
+
+game_complete = False
 
 player_img = pygame.image.load("assets/player.png").convert_alpha()
 player_img = pygame.transform.scale(player_img, (50, 50))
@@ -48,14 +57,7 @@ current_level = 0
 xp = 0
 level_xp_thresholds = [10, 25, 50]
 
-checkpoints = {
-    0: {"xp": 0, "y": 250},
-    1: {"xp": level_xp_thresholds[0], "y": 250},
-    2: {"xp": level_xp_thresholds[1], "y": 250},
-}
-
 question_active = False
-game_over = False
 current_q = None
 
 fruit_type = random.choice(list(fruit_imgs.keys()))
@@ -69,52 +71,52 @@ questions = {
     "apple": {
         0: [
             {"q": "Which vitamin is high in apples?", "options": ["A","C","K","D"], "answer":1},
-            {"q": "Calories in a medium apple?", "options":["50","95","120","200"], "answer":1},
-            {"q": "Apples are rich in?", "options":["Fat","Protein","Fiber","Sugar"], "answer":2}
+            {"q": "Apples are rich in?", "options":["Fat","Protein","Fiber","Sugar"], "answer":2},
+            {"q": "Calories in an apple?", "options":["50","95","150","200"], "answer":1}
         ],
         1: [
-            {"q": "Apple antioxidants are called?", "options":["Iron","Flavonoids","Zinc","Calcium"], "answer":1},
-            {"q": "Apples can lower risk of?", "options":["Heart disease","Flu","Cold","Cancer"], "answer":0},
-            {"q": "Apple fiber supports?", "options":["Vision","Digestion","Sleep","Bones"], "answer":1}
+            {"q": "Apple fiber supports?", "options":["Digestion","Vision","Sleep","Bones"], "answer":0},
+            {"q": "Apples help lower?", "options":["Cholesterol","Fever","Cough","Pain"], "answer":0},
+            {"q": "Apple antioxidants?", "options":["Flavonoids","Iron","Zinc","Calcium"], "answer":0}
         ],
         2: [
-            {"q": "Apples help regulate?", "options":["Blood sugar","Heart rate","Sleep","Vision"], "answer":0},
-            {"q": "Apples may reduce?", "options":["Cholesterol","Fever","Cough","Pain"], "answer":0},
-            {"q": "Key mineral in apples?", "options":["Potassium","Iron","Zinc","Sodium"], "answer":0}
+            {"q": "Apples regulate?", "options":["Blood sugar","Sleep","Vision","Heart rate"], "answer":0},
+            {"q": "Key apple mineral?", "options":["Potassium","Iron","Zinc","Sodium"], "answer":0},
+            {"q": "Apple health benefit?", "options":["Heart health","Hearing","Memory","Reflexes"], "answer":0}
         ]
     },
     "banana": {
         0: [
             {"q":"Bananas are rich in?", "options":["Iron","Potassium","Calcium","Zinc"], "answer":1},
-            {"q":"Bananas provide fast?", "options":["Protein","Energy","Fat","Fiber"], "answer":1},
-            {"q":"Bananas contain?", "options":["Sugar","Trans fat","Cholesterol","Alcohol"], "answer":0}
+            {"q":"Bananas give fast?", "options":["Energy","Fat","Protein","Fiber"], "answer":0},
+            {"q":"Bananas contain?", "options":["Sugar","Alcohol","Cholesterol","Trans fat"], "answer":0}
         ],
         1: [
-            {"q":"Bananas help prevent?", "options":["Cramps","Flu","Headache","Cold"], "answer":0},
+            {"q":"Bananas help prevent?", "options":["Cramps","Flu","Cold","Infection"], "answer":0},
             {"q":"Bananas support?", "options":["Digestion","Vision","Bones","Skin"], "answer":0},
-            {"q":"Bananas are low in?", "options":["Protein","Potassium","Vitamin B6","Fiber"], "answer":0}
+            {"q":"Bananas are low in?", "options":["Fat","Potassium","Fiber","Vitamin B6"], "answer":0}
         ],
         2: [
-            {"q":"Bananas regulate?", "options":["Blood pressure","Heart rate","Sleep","Vision"], "answer":0},
-            {"q":"Banana antioxidants?", "options":["Flavonoids","Calcium","Iron","Zinc"], "answer":0},
-            {"q":"Bananas are best for?", "options":["Energy","Hydration","Weight loss","Sleep"], "answer":0}
+            {"q":"Bananas regulate?", "options":["Blood pressure","Sleep","Vision","Mood"], "answer":0},
+            {"q":"Banana antioxidants?", "options":["Flavonoids","Iron","Zinc","Calcium"], "answer":0},
+            {"q":"Bananas best for?", "options":["Energy","Hydration","Weight loss","Sleep"], "answer":0}
         ]
     },
     "avocado": {
         0: [
             {"q":"Avocados contain?", "options":["Healthy fats","Sugar","Trans fats","Starch"], "answer":0},
             {"q":"Avocados support?", "options":["Heart","Lungs","Bones","Eyes"], "answer":0},
-            {"q":"Avocados are high in?", "options":["Vitamin E","Vitamin D","Vitamin B12","Vitamin A"], "answer":0}
+            {"q":"Avocados high in?", "options":["Vitamin E","Vitamin D","B12","A"], "answer":0}
         ],
         1: [
-            {"q":"Avocados lower?", "options":["Cholesterol","Blood sugar","Weight","Sleep"], "answer":0},
-            {"q":"Avocados are rich in?", "options":["Potassium","Iron","Zinc","Sodium"], "answer":0},
+            {"q":"Avocados lower?", "options":["Cholesterol","Sleep","Weight","Stress"], "answer":0},
+            {"q":"Avocados rich in?", "options":["Potassium","Iron","Zinc","Sodium"], "answer":0},
             {"q":"Avocado fiber helps?", "options":["Digestion","Vision","Sleep","Energy"], "answer":0}
         ],
         2: [
             {"q":"Avocados reduce risk of?", "options":["Heart disease","Flu","Cold","Obesity"], "answer":0},
-            {"q":"Avocados provide?", "options":["Unsaturated fats","Protein","Sugar","Starch"], "answer":0},
-            {"q":"Avocados improve?", "options":["Heart health","Vision","Hearing","Memory"], "answer":0}
+            {"q":"Avocados provide?", "options":["Unsaturated fats","Sugar","Protein","Starch"], "answer":0},
+            {"q":"Avocados improve?", "options":["Heart health","Hearing","Memory","Reflexes"], "answer":0}
         ]
     }
 }
@@ -138,11 +140,11 @@ def create_edge_spikes():
         bottom_spikes.append(pygame.Rect(x, HEIGHT - 40, 40, 40))
 
 def spawn_middle_blocks():
-    count = 1 + current_level
-    for _ in range(count):
-        x = WIDTH + random.randint(400, 900)
-        y = random.randint(120, HEIGHT - 180)
-        middle_blocks.append(pygame.Rect(x, y, 60, 60))
+    for _ in range(1 + current_level):
+        middle_blocks.append(
+            pygame.Rect(WIDTH + random.randint(400, 900),
+                        random.randint(120, HEIGHT - 180), 60, 60)
+        )
 
 def spawn_fruit():
     global fruit_type
@@ -150,17 +152,23 @@ def spawn_fruit():
     fruit.x = WIDTH + random.randint(400, 700)
     fruit.y = random.randint(80, HEIGHT - 110)
 
-def reset_to_checkpoint():
-    global xp, vel_y, question_active, game_over
-    checkpoint = checkpoints[current_level]
-    xp = checkpoint["xp"]
+def reset_entire_game():
+    global xp, current_level, vel_y, question_active, death_message, death_timer, invuln_timer
+
+    xp = 0
+    current_level = 0
     vel_y = 0
     question_active = False
-    game_over = False
+
     middle_blocks.clear()
     create_edge_spikes()
     spawn_fruit()
-    player.y = checkpoint["y"]
+
+    player.y = 250
+
+    death_message = "Boohoo, don't hit the spikes!"
+    death_timer = DEATH_DISPLAY_TIME
+    invuln_timer = INVULN_TIME
 
 create_edge_spikes()
 spawn_fruit()
@@ -170,37 +178,38 @@ running = True
 
 while running:
     clock.tick(60)
-    PAUSED = question_active or game_over
+    PAUSED = question_active or death_timer > 0 or game_complete
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            pygame.quit()
+            sys.exit()
 
-        if event.type == pygame.KEYDOWN:
-            if not PAUSED and event.key == pygame.K_SPACE:
+        if event.type == pygame.KEYDOWN and not PAUSED:
+            if event.key == pygame.K_SPACE:
                 vel_y = -15
-            if game_over and event.key == pygame.K_r:
-                reset_to_checkpoint()
 
         if event.type == pygame.MOUSEBUTTONDOWN and question_active:
             mx, my = pygame.mouse.get_pos()
             for i in range(4):
-                box = pygame.Rect(250, 230 + i * 40, 500, 30)
-                if box.collidepoint(mx, my):
+                if pygame.Rect(250, 230 + i * 40, 500, 30).collidepoint(mx, my):
                     if i == current_q["answer"]:
                         question_active = False
                         xp += 5
-                        if current_level < 2 and xp >= level_xp_thresholds[current_level]:
+
+                        if xp >= 50:
+                            game_complete = True
+                        elif current_level < 2 and xp >= level_xp_thresholds[current_level]:
                             current_level += 1
                             create_edge_spikes()
-                            spawn_fruit()
+
+                        spawn_fruit()
                     else:
-                        reset_to_checkpoint()
+                        reset_entire_game()
 
     if not PAUSED:
         vel_y += 1
         player.y += vel_y
-        player.y = max(40, min(player.y, HEIGHT - 90))
 
         fruit.x -= BASE_SPEED + current_level * 2
         for block in middle_blocks:
@@ -211,18 +220,26 @@ while running:
             spawn_middle_blocks()
             block_timer = 0
 
-        if player.colliderect(fruit):
+        if player.colliderect(fruit) and not question_active:
             question_active = True
             current_q = random.choice(questions[fruit_type][current_level])
+            fruit.x = -100
 
-        for obstacle in top_spikes + bottom_spikes + middle_blocks:
-            if player.colliderect(obstacle):
-                reset_to_checkpoint()
-                break
+        if invuln_timer == 0:
+            if player.top <= 40 or player.bottom >= HEIGHT - 40:
+                reset_entire_game()
+
+            for block in middle_blocks:
+                if player.colliderect(block):
+                    reset_entire_game()
+                    break
+
+        if invuln_timer > 0:
+            invuln_timer -= 1
 
         middle_blocks[:] = [b for b in middle_blocks if b.x > -70]
 
-        if fruit.x < -50:
+        if fruit.x < -150 and not question_active:
             spawn_fruit()
 
     draw_background(0 if PAUSED else BASE_SPEED + current_level * 2)
@@ -230,12 +247,12 @@ while running:
     screen.blit(player_img, player)
     screen.blit(fruit_imgs[fruit_type], fruit)
 
-    for spike in top_spikes:
-        screen.blit(top_spike_img, spike)
-    for spike in bottom_spikes:
-        screen.blit(spike_img, spike)
-    for block in middle_blocks:
-        screen.blit(square_img, block)
+    for s in top_spikes:
+        screen.blit(top_spike_img, s)
+    for s in bottom_spikes:
+        screen.blit(spike_img, s)
+    for b in middle_blocks:
+        screen.blit(square_img, b)
 
     if question_active:
         pygame.draw.rect(screen, (10,10,10), (200,180,600,260))
@@ -244,10 +261,29 @@ while running:
             pygame.draw.rect(screen, (60,60,60), (250,230+i*40,500,30))
             screen.blit(FONT.render(opt, True, (255,255,255)), (260,235+i*40))
 
+    if death_timer > 0:
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0,0,0))
+        screen.blit(overlay, (0,0))
+        screen.blit(BIG_FONT.render(death_message, True, (255,80,80)),
+                    (WIDTH//2 - 250, HEIGHT//2 - 20))
+        death_timer -= 1
+
+    if game_complete:
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0,0,0))
+        screen.blit(overlay, (0,0))
+        screen.blit(
+            BIG_FONT.render(
+                "Good job, make sure you eat your fruits and vegetables daily!",
+                True, (80,255,80)
+            ),
+            (WIDTH//2 - 430, HEIGHT//2 - 20)
+        )
+
     screen.blit(FONT.render(f"XP: {xp}", True, (255,255,0)), (20,20))
     screen.blit(FONT.render(f"Level: {current_level+1}", True, (255,255,0)), (20,50))
 
     pygame.display.update()
-
-pygame.quit()
-sys.exit()
