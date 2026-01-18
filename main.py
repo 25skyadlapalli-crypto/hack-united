@@ -48,6 +48,12 @@ current_level = 0
 xp = 0
 level_xp_thresholds = [10, 25, 50]
 
+checkpoints = {
+    0: {"xp": 0, "y": 250},
+    1: {"xp": level_xp_thresholds[0], "y": 250},
+    2: {"xp": level_xp_thresholds[1], "y": 250},
+}
+
 question_active = False
 game_over = False
 current_q = None
@@ -144,17 +150,17 @@ def spawn_fruit():
     fruit.x = WIDTH + random.randint(400, 700)
     fruit.y = random.randint(80, HEIGHT - 110)
 
-def reset_game():
-    global xp, current_level, vel_y, question_active, game_over
-    xp = 0
-    current_level = 0
+def reset_to_checkpoint():
+    global xp, vel_y, question_active, game_over
+    checkpoint = checkpoints[current_level]
+    xp = checkpoint["xp"]
     vel_y = 0
     question_active = False
     game_over = False
     middle_blocks.clear()
     create_edge_spikes()
     spawn_fruit()
-    player.y = 250
+    player.y = checkpoint["y"]
 
 create_edge_spikes()
 spawn_fruit()
@@ -174,7 +180,7 @@ while running:
             if not PAUSED and event.key == pygame.K_SPACE:
                 vel_y = -15
             if game_over and event.key == pygame.K_r:
-                reset_game()
+                reset_to_checkpoint()
 
         if event.type == pygame.MOUSEBUTTONDOWN and question_active:
             mx, my = pygame.mouse.get_pos()
@@ -187,9 +193,9 @@ while running:
                         if current_level < 2 and xp >= level_xp_thresholds[current_level]:
                             current_level += 1
                             create_edge_spikes()
-                        spawn_fruit()
+                            spawn_fruit()
                     else:
-                        reset_game()
+                        reset_to_checkpoint()
 
     if not PAUSED:
         vel_y += 1
@@ -211,7 +217,8 @@ while running:
 
         for obstacle in top_spikes + bottom_spikes + middle_blocks:
             if player.colliderect(obstacle):
-                game_over = True
+                reset_to_checkpoint()
+                break
 
         middle_blocks[:] = [b for b in middle_blocks if b.x > -70]
 
@@ -236,11 +243,6 @@ while running:
         for i, opt in enumerate(current_q["options"]):
             pygame.draw.rect(screen, (60,60,60), (250,230+i*40,500,30))
             screen.blit(FONT.render(opt, True, (255,255,255)), (260,235+i*40))
-
-    if game_over:
-        pygame.draw.rect(screen, (0,0,0), (0,0,WIDTH,HEIGHT))
-        screen.blit(BIG_FONT.render("GAME OVER", True, (255,50,50)), (410,210))
-        screen.blit(FONT.render("Press R to restart", True, (200,200,200)), (420,270))
 
     screen.blit(FONT.render(f"XP: {xp}", True, (255,255,0)), (20,20))
     screen.blit(FONT.render(f"Level: {current_level+1}", True, (255,255,0)), (20,50))
